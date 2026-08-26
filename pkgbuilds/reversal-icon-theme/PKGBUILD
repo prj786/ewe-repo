@@ -1,0 +1,27 @@
+# Maintainer: scubba
+#
+# The ewe desktop's icon theme, ALL colour variants — the shell's
+# colorscheme.sh maps any accent to its nearest Reversal variant, so every
+# variant is a live feature, not bloat. Pinned to an upstream commit; bump
+# _commit + pkgver deliberately (upstream has no tags).
+
+pkgname=reversal-icon-theme
+pkgver=2026.08.27
+pkgrel=1
+pkgdesc="Reversal icon theme, all colour variants (ewe desktop)"
+arch=('any')
+url="https://github.com/yeyushengfan258/Reversal-icon-theme"
+license=('GPL-3.0-only')
+makedepends=('git' 'gtk-update-icon-cache')
+_commit=2c8122287e3bad5a6bf860ddd8c7e3b78cf4d451
+source=("git+$url.git#commit=$_commit")
+sha256sums=('SKIP')
+
+package() {
+    cd Reversal-icon-theme
+    install -d "$pkgdir/usr/share/icons"
+    ./install.sh -d "$pkgdir/usr/share/icons" -t all
+    # icon caches are per-machine (alpm's gtk-update-icon-cache hook rebuilds
+    # them on install) — don't ship whatever install.sh generated
+    rm -f "$pkgdir"/usr/share/icons/*/icon-theme.cache
+}

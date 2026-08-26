@@ -1,0 +1,4 @@
+pkgbuilds/*/src/
+pkgbuilds/*/pkg/
+pkgbuilds/*/*.pkg.tar.zst
+pkgbuilds/*/*.log

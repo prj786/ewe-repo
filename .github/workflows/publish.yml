@@ -79,6 +79,18 @@ jobs:
             echo "::endgroup::"
           done < <(sed 's/#.*//' aur-packages.txt | awk 'NF{print $1}')
 
+      - name: Build the local PKGBUILDs (things not on AUR — see pkgbuilds/)
+        run: |
+          for d in pkgbuilds/*/; do
+            p=$(basename "$d")
+            echo "::group::$p"
+            chown -R builder "$d"
+            ( cd "$d" && sudo -u builder makepkg -sf --noconfirm --noprogressbar )
+            find "$d" -name '*.pkg.tar.zst' ! -name '*-debug-*' \
+                 -exec cp {} "$GITHUB_WORKSPACE/pkgs/" \;
+            echo "::endgroup::"
+          done
+
       - name: Validate that every ewe dependency resolves
         run: |
           fail=0

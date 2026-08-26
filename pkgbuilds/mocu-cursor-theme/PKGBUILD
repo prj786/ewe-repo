@@ -1,0 +1,25 @@
+# Maintainer: scubba
+#
+# The ewe desktop's cursor (Mocu, all four variants). Built from SVG sources
+# exactly like ewe's install.sh phase 20 did before this package existed.
+# Pinned to an upstream commit; bump _commit + pkgver deliberately.
+
+pkgname=mocu-cursor-theme
+pkgver=2026.08.27
+pkgrel=1
+pkgdesc="Mocu xcursor theme, all variants (ewe desktop)"
+arch=('any')
+url="https://github.com/sevmeyer/mocu-xcursor"
+license=('MIT')
+makedepends=('git' 'librsvg' 'xorg-xcursorgen' 'xmlstarlet')
+_commit=efdd71279b79bf1e2566c38becc5e7c4ab2d900c
+source=("git+$url.git#commit=$_commit")
+sha256sums=('SKIP')
+
+package() {
+    cd mocu-xcursor
+    bash ./make.sh
+    install -d "$pkgdir/usr/share/icons"
+    cp -r dist/. "$pkgdir/usr/share/icons/"
+    install -Dm644 LICENSE* -t "$pkgdir/usr/share/licenses/$pkgname/" 2>/dev/null || true
+}
