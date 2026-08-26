@@ -95,10 +95,11 @@ jobs:
         run: |
           cd pkgs
           repo-add ewe.db.tar.gz *.pkg.tar.zst
-          # GitHub release assets cannot be symlinks — publish real files under
-          # the names pacman actually requests
-          cp -L ewe.db.tar.gz ewe.db
-          cp -L ewe.files.tar.gz ewe.files
+          # GitHub release assets cannot be symlinks; repo-add leaves ewe.db as
+          # one — replace both with real copies under the names pacman requests
+          rm -f ewe.db ewe.files
+          cp ewe.db.tar.gz ewe.db
+          cp ewe.files.tar.gz ewe.files
           ls -l
 
       - name: Publish to the rolling x86_64 release
