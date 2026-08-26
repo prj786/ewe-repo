@@ -104,6 +104,9 @@ jobs:
 
       - name: Publish to the rolling x86_64 release
         run: |
+          # gh resolves the release's target commit from the local checkout,
+          # which the container's git refuses to read as root without this
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           gh release delete x86_64 --cleanup-tag --yes 2>/dev/null || true
           gh release create x86_64 \
             --title "ewe package repository (x86_64)" \
