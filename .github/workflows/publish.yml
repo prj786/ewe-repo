@@ -1,0 +1,110 @@
+# Build and publish the [ewe] pacman repository.
+#
+# Output: the rolling `x86_64` release of this repo carries ewe.db + every
+# .pkg.tar.zst, so a pacman.conf stanza of
+#
+#   [ewe]
+#   SigLevel = Optional TrustAll
+#   Server = https://github.com/prj786/ewe-repo/releases/download/x86_64
+#
+# makes `pacman -Syu` update the whole DE. Contents per run:
+#   - ewe            — built here from prj786/ewe's packaging/PKGBUILD, pkgver
+#                      pinned to that repo's LATEST release tag
+#   - komble-arch    — latest release asset of prj786/komble-arch
+#   - ewe-settings   — latest release asset of prj786/ewe-settings
+#   - aur-packages.txt entries — built from their AUR PKGBUILDs in this clean
+#                      Arch container
+#
+# The release is deleted and recreated each publish so stale versions never
+# accumulate next to the db (pacman only reads the db, but humans read the
+# asset list). Trigger manually after any app release, or let the weekly run
+# refresh the AUR builds.
+
+name: publish
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [publish]
+  schedule:
+    - cron: '17 4 * * 1'   # Mondays — keep the AUR -bin packages from rotting
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Prepare toolchain and an unprivileged builder (makepkg refuses root)
+        run: |
+          pacman -Syu --noconfirm git github-cli sudo
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+
+      - uses: actions/checkout@v4
+
+      - name: Collect the first-party app packages (latest releases)
+        run: |
+          mkdir -p pkgs
+          gh release download --repo prj786/komble-arch  --pattern '*.pkg.tar.zst' --dir pkgs
+          gh release download --repo prj786/ewe-settings --pattern '*.pkg.tar.zst' --dir pkgs
+          ls -l pkgs
+
+      - name: Build the ewe package (pkgver = latest ewe release tag)
+        run: |
+          ver="$(gh release view --repo prj786/ewe --json tagName -q .tagName)"
+          git clone --depth 1 https://github.com/prj786/ewe.git /tmp/ewe
+          cd /tmp/ewe/packaging
+          sed -i "s/^pkgver=.*/pkgver=${ver#v}/" PKGBUILD
+          chown -R builder .
+          sudo -u builder makepkg -df --noconfirm
+          cp ewe-*.pkg.tar.zst "$GITHUB_WORKSPACE/pkgs/"
+
+      - name: Build the AUR packages
+        run: |
+          while read -r p; do
+            echo "::group::$p"
+            git clone --depth 1 "https://aur.archlinux.org/$p.git" "/tmp/aur/$p"
+            chown -R builder "/tmp/aur/$p"
+            ( cd "/tmp/aur/$p" && sudo -u builder makepkg -s --noconfirm --noprogressbar )
+            find "/tmp/aur/$p" -name '*.pkg.tar.zst' ! -name '*-debug-*' \
+                 -exec cp {} "$GITHUB_WORKSPACE/pkgs/" \;
+            echo "::endgroup::"
+          done < <(sed 's/#.*//' aur-packages.txt | awk 'NF{print $1}')
+
+      - name: Validate that every ewe dependency resolves
+        run: |
+          fail=0
+          for d in $(bsdtar -xOf pkgs/ewe-*.pkg.tar.zst .PKGINFO \
+                     | awk -F' = ' '$1=="depend"{print $2}' | sed 's/[<>=].*//'); do
+            ls pkgs/"$d"-[0-9]*.pkg.tar.zst >/dev/null 2>&1 && continue
+            pacman -Si "$d" >/dev/null 2>&1 && continue
+            echo "::error::unresolvable dependency: $d (not in the official repos, not built here)"
+            fail=1
+          done
+          exit $fail
+
+      - name: Build the repo database
+        run: |
+          cd pkgs
+          repo-add ewe.db.tar.gz *.pkg.tar.zst
+          # GitHub release assets cannot be symlinks — publish real files under
+          # the names pacman actually requests
+          cp -L ewe.db.tar.gz ewe.db
+          cp -L ewe.files.tar.gz ewe.files
+          ls -l
+
+      - name: Publish to the rolling x86_64 release
+        run: |
+          gh release delete x86_64 --cleanup-tag --yes 2>/dev/null || true
+          gh release create x86_64 \
+            --title "ewe package repository (x86_64)" \
+            --notes "$(printf 'Rolling pacman repository for the ewe desktop.\n\n```\n[ewe]\nSigLevel = Optional TrustAll\nServer = https://github.com/prj786/ewe-repo/releases/download/x86_64\n```')" \
+            pkgs/ewe.db pkgs/ewe.files pkgs/ewe.db.tar.gz pkgs/ewe.files.tar.gz pkgs/*.pkg.tar.zst

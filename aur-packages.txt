@@ -1,0 +1,9 @@
+# AUR packages served prebuilt from the [ewe] repo, one per line. Keep in sync
+# with packages/aur.list in prj786/ewe (this list is that one, plus paru-bin so
+# fresh installs skip the from-source AUR-helper bootstrap). The publish
+# workflow builds each from its AUR PKGBUILD in a clean Arch container.
+oh-my-posh-bin
+mpvpaper
+gnome-network-displays
+fresh-editor-bin
+paru-bin
