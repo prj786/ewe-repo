@@ -103,15 +103,30 @@ jobs:
           done
           exit $fail
 
+      - name: Sign every package (EWE_SIGNING_KEY, fpr 639CA544…0763C1)
+        env:
+          EWE_SIGNING_KEY: ${{ secrets.EWE_SIGNING_KEY }}
+        run: |
+          pacman -S --noconfirm --needed gnupg
+          echo "$EWE_SIGNING_KEY" | gpg --batch --import
+          for f in pkgs/*.pkg.tar.zst; do
+            gpg --batch --pinentry-mode loopback --passphrase '' \
+                -u 639CA544B61509B3FC2621ABADBCD432FC0763C1 --detach-sign "$f"
+          done
+          ls pkgs/*.sig | wc -l
+
       - name: Build the repo database
         run: |
           cd pkgs
-          repo-add ewe.db.tar.gz *.pkg.tar.zst
+          repo-add --sign --key 639CA544B61509B3FC2621ABADBCD432FC0763C1 \
+                   ewe.db.tar.gz *.pkg.tar.zst
           # GitHub release assets cannot be symlinks; repo-add leaves ewe.db as
           # one — replace both with real copies under the names pacman requests
-          rm -f ewe.db ewe.files
+          rm -f ewe.db ewe.files ewe.db.sig ewe.files.sig
           cp ewe.db.tar.gz ewe.db
           cp ewe.files.tar.gz ewe.files
+          cp ewe.db.tar.gz.sig ewe.db.sig
+          cp ewe.files.tar.gz.sig ewe.files.sig
           ls -l
 
       - name: Publish to the rolling x86_64 release
@@ -123,4 +138,5 @@ jobs:
           gh release create x86_64 \
             --title "ewe package repository (x86_64)" \
             --notes "$(printf 'Rolling pacman repository for the ewe desktop.\n\n```\n[ewe]\nSigLevel = Optional TrustAll\nServer = https://github.com/prj786/ewe-repo/releases/download/x86_64\n```')" \
-            pkgs/ewe.db pkgs/ewe.files pkgs/ewe.db.tar.gz pkgs/ewe.files.tar.gz pkgs/*.pkg.tar.zst
+            pkgs/ewe.db pkgs/ewe.files pkgs/ewe.db.sig pkgs/ewe.files.sig \
+            pkgs/ewe.db.tar.gz pkgs/ewe.files.tar.gz pkgs/*.pkg.tar.zst pkgs/*.sig
