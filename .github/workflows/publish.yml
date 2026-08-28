@@ -91,17 +91,49 @@ jobs:
             echo "::endgroup::"
           done
 
-      - name: Validate that every ewe dependency resolves
+      - name: Fresh-install gate — resolve `pacman -S ewe` like a new machine would
         run: |
-          fail=0
-          for d in $(bsdtar -xOf pkgs/ewe-*.pkg.tar.zst .PKGINFO \
-                     | awk -F' = ' '$1=="depend"{print $2}' | sed 's/[<>=].*//'); do
-            ls pkgs/"$d"-[0-9]*.pkg.tar.zst >/dev/null 2>&1 && continue
-            pacman -Si "$d" >/dev/null 2>&1 && continue
-            echo "::error::unresolvable dependency: $d (not in the official repos, not built here)"
-            fail=1
-          done
-          exit $fail
+          # The 0.9.1 package review found jack2+pipewire-jack resolving into
+          # the SAME fresh install, and Afrikaans OCR data riding in via an
+          # unpinned virtual. This gate re-runs that audit on every publish:
+          # a scratch-db resolution of the freshly built repo must succeed,
+          # contain no blacklisted package, and carry no conflicting pair.
+          repo-add -q /tmp/gate.db.tar.gz pkgs/*.pkg.tar.zst
+          mkdir -p /tmp/gate/local /tmp/gate/sync
+          cp /var/lib/pacman/sync/{core,extra}.db /tmp/gate/sync/
+          cp /tmp/gate.db.tar.gz /tmp/gate/sync/gate.db
+          printf '[options]\nArchitecture = auto\nSigLevel = Never\n[gate]\nServer = file://%s/pkgs\n[core]\nInclude = /etc/pacman.d/mirrorlist\n[extra]\nInclude = /etc/pacman.d/mirrorlist\n' "$PWD" > /tmp/gate.conf
+          pacman -Sp --config /tmp/gate.conf --dbpath /tmp/gate --noconfirm gate/ewe \
+            | sed 's|.*/||; s|-[0-9][^-]*-[0-9][^-]*-[^-]*\.pkg\.tar\.zst||' > /tmp/tree.txt
+          [ -s /tmp/tree.txt ] || { echo "::error::fresh install does not resolve"; exit 1; }
+          echo "fresh install: $(wc -l < /tmp/tree.txt) packages"
+          if grep -xE "jack2|tesseract-data-afr|papirus-icon-theme|iwd" /tmp/tree.txt; then
+            echo "::error::blacklisted package resolved into a fresh install"; exit 1
+          fi
+          python - <<'PY'
+          import subprocess, collections
+          names=[l.strip() for l in open("/tmp/tree.txt") if l.strip()]
+          out=subprocess.run(["pacman","--config","/tmp/gate.conf","--dbpath","/tmp/gate","-Si"]+names,capture_output=True,text=True).stdout
+          info,cur={},None
+          for line in out.splitlines():
+              if line.startswith("Name"): cur=line.split(":",1)[1].strip(); info[cur]={"P":"","C":""}
+              elif cur and line.startswith("Provides"): info[cur]["P"]=line.split(":",1)[1].strip()
+              elif cur and line.startswith("Conflicts"): info[cur]["C"]=line.split(":",1)[1].strip()
+          def parse(x): return [] if x in("","None") else [t for t in x.split()]
+          def base(t): return t.split("=")[0].split("<")[0].split(">")[0]
+          prov=collections.defaultdict(set)
+          for n,d in info.items():
+              prov[n].add(n)
+              for p in parse(d["P"]): prov[base(p)].add(n)
+          bad=[]
+          for n,d in info.items():
+              for c in parse(d["C"]):
+                  if any(ch in c for ch in "<>="): continue   # versioned = alternative bound
+                  hits=(prov.get(base(c),set())-{n}) & set(info)
+                  if hits and base(c) not in [base(p) for p in parse(d["P"])]: bad.append((n,sorted(hits),c))
+          for b in bad: print("::error::conflicting pair in fresh install:",b)
+          raise SystemExit(1 if bad else 0)
+          PY
 
       - name: Sign every package (EWE_SIGNING_KEY, fpr 639CA544…0763C1)
         env:
