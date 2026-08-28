@@ -139,4 +139,4 @@ jobs:
             --title "ewe package repository (x86_64)" \
             --notes "$(printf 'Rolling pacman repository for the ewe desktop.\n\n```\n[ewe]\nSigLevel = Optional TrustAll\nServer = https://github.com/prj786/ewe-repo/releases/download/x86_64\n```')" \
             pkgs/ewe.db pkgs/ewe.files pkgs/ewe.db.sig pkgs/ewe.files.sig \
-            pkgs/ewe.db.tar.gz pkgs/ewe.files.tar.gz pkgs/*.pkg.tar.zst pkgs/*.sig
+            pkgs/ewe.db.tar.gz pkgs/ewe.files.tar.gz pkgs/*.pkg.tar.zst pkgs/*.pkg.tar.zst.sig
