@@ -75,6 +75,20 @@ jobs:
           sudo -u builder makepkg -df --noconfirm
           cp ewe-*.pkg.tar.zst "$GITHUB_WORKSPACE/pkgs/"
 
+      - name: Build the ewe-cast package (pkgver = latest ewe-cast release tag)
+        run: |
+          ver="$(gh release view --repo prj786/ewe-cast --json tagName -q .tagName 2>/dev/null || true)"
+          if [ -z "$ver" ]; then
+            echo "::warning::ewe-cast has no release yet — the repo will not carry it this round"
+            exit 0
+          fi
+          git clone --depth 1 https://github.com/prj786/ewe-cast.git /tmp/ewe-cast
+          cd /tmp/ewe-cast/packaging
+          sed -i "s/^pkgver=.*/pkgver=${ver#v}/" PKGBUILD
+          chown -R builder .
+          sudo -u builder makepkg -df --noconfirm
+          cp ewe-cast-*.pkg.tar.zst "$GITHUB_WORKSPACE/pkgs/"
+
       - name: Build the AUR packages
         run: |
           while read -r p; do
