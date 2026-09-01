@@ -7,3 +7,4 @@ mpvpaper
 gnome-network-displays
 paru-bin
 helium-browser-bin
+mpv-uosc-git
