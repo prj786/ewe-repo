@@ -75,6 +75,33 @@ jobs:
           sudo -u builder makepkg -df --noconfirm
           cp ewe-*.pkg.tar.zst "$GITHUB_WORKSPACE/pkgs/"
 
+      - name: Assert the ewe package CONTENTS (what a fresh install actually gets)
+        # 2026-09-01: every 0.9.x package shipped without the Google client —
+        # the PKGBUILD unpacks the tag tarball, which can never carry an
+        # injected untracked file — and nothing noticed until a VM test showed
+        # "Not configured" in Settings → User. The build going green is not
+        # the same as the box being complete: list what MUST be inside.
+        run: |
+          pkg="$(ls "$GITHUB_WORKSPACE"/pkgs/ewe-*.pkg.tar.zst | head -1)"
+          tar --zstd -tf "$pkg" > /tmp/ewe-pkg-files
+          fail=0
+          for want in \
+            usr/share/ewe/system/oauth-client.json \
+            usr/share/ewe/dotfiles/quickshell/shell.qml \
+            usr/share/ewe/dotfiles/hypr/start-hyprland.sh \
+            usr/share/ewe/system/greetd/config.toml \
+            usr/share/ewe/system/branding/wallpapers/ \
+            usr/share/ewe/VERSION \
+            usr/bin/ewe-setup usr/bin/ewe-conf usr/bin/ewe-auth usr/bin/ewe-drive; do
+            grep -qx "$want" /tmp/ewe-pkg-files || { echo "::error::missing from the ewe package: $want"; fail=1; }
+          done
+          # the client must be real JSON with a client_id, not an empty injection
+          tar --zstd -xOf "$pkg" usr/share/ewe/system/oauth-client.json \
+            | python3 -c 'import json,sys; j=json.load(sys.stdin); j=j.get("installed", j); assert j.get("client_id"), "no client_id"' \
+            || { echo "::error::oauth-client.json in the package is not a usable client"; fail=1; }
+          [ "$fail" = 0 ] && echo "ewe package contents OK ($(wc -l < /tmp/ewe-pkg-files) files)"
+          exit $fail
+
       - name: Build the ewe-cast package (pkgver = latest ewe-cast release tag)
         run: |
           ver="$(gh release view --repo prj786/ewe-cast --json tagName -q .tagName 2>/dev/null || true)"
