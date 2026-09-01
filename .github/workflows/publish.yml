@@ -122,6 +122,13 @@ jobs:
             echo "::group::$p"
             git clone --depth 1 "https://aur.archlinux.org/$p.git" "/tmp/aur/$p"
             chown -R builder "/tmp/aur/$p"
+            # source-signature packages (helium-browser-bin): import the
+            # PKGBUILD's validpgpkeys into the BUILDER's keyring, or makepkg
+            # dies with "unknown public key" (2026-09-02)
+            keys="$(cd "/tmp/aur/$p" && sudo -u builder bash -c 'source ./PKGBUILD 2>/dev/null; echo "${validpgpkeys[@]:-}"')"
+            for k in $keys; do
+              sudo -u builder gpg --keyserver keyserver.ubuntu.com --recv-keys "$k"                 || sudo -u builder gpg --keyserver hkps://keys.openpgp.org --recv-keys "$k" || true
+            done
             ( cd "/tmp/aur/$p" && sudo -u builder makepkg -s --noconfirm --noprogressbar )
             find "/tmp/aur/$p" -name '*.pkg.tar.zst' ! -name '*-debug-*' \
                  -exec cp {} "$GITHUB_WORKSPACE/pkgs/" \;
