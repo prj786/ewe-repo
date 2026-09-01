@@ -2,3 +2,6 @@ pkgbuilds/*/src/
 pkgbuilds/*/pkg/
 pkgbuilds/*/*.pkg.tar.zst
 pkgbuilds/*/*.log
+# makepkg working state from local test builds — only PKGBUILDs belong here
+pkgbuilds/*/*
+!pkgbuilds/*/PKGBUILD

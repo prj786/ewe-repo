@@ -5,5 +5,4 @@
 oh-my-posh-bin
 mpvpaper
 gnome-network-displays
-fresh-editor-bin
 paru-bin
