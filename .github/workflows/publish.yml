@@ -12,6 +12,7 @@
 #                      pinned to that repo's LATEST release tag
 #   - komble-arch    — latest release asset of prj786/komble-arch
 #   - ewe-settings   — latest release asset of prj786/ewe-settings
+#   - ewe-sync       — latest release asset of prj786/ewe-sync (RFC-006, the account app)
 #   - aur-packages.txt entries — built from their AUR PKGBUILDs in this clean
 #                      Arch container
 #
@@ -55,6 +56,9 @@ jobs:
           mkdir -p pkgs
           gh release download --repo prj786/komble-arch  --pattern '*.pkg.tar.zst' --dir pkgs
           gh release download --repo prj786/ewe-settings --pattern '*.pkg.tar.zst' --dir pkgs
+          # ewe-sync (RFC-006): a warning, not a failure, until its first release exists
+          gh release download --repo prj786/ewe-sync --pattern '*.pkg.tar.zst' --dir pkgs \
+            || echo "::warning::ewe-sync has no release yet — the repo will not carry it this round"
           ls -l pkgs
 
       - name: Build the ewe package (pkgver = latest ewe release tag)
@@ -97,6 +101,9 @@ jobs:
             usr/bin/ewe-cloud usr/bin/ewe-caldav usr/bin/ewe-mail; do
             grep -qx "$want" /tmp/ewe-pkg-files || { echo "::error::missing from the ewe package: $want"; fail=1; }
           done
+          # the account app is a dependency of the desktop (RFC-006)
+          tar --zstd -xOf "$pkg" .PKGINFO | grep -q '^depend = ewe-sync' \
+            || { echo "::error::the ewe package does not depend on ewe-sync"; fail=1; }
           if grep -q 'oauth-client.json' /tmp/ewe-pkg-files; then
             echo "::error::the ewe package carries an oauth-client.json — RFC-005 ships no Google client"; fail=1
           fi
