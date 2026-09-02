@@ -23,7 +23,11 @@ sudo pacman -S ewe      # or: pull the whole desktop onto a fresh Arch install
 
 `pacman -S ewe` installs the payload to `/usr/share/ewe` and every dependency
 (the full package lists from the ewe repo, plus Komble and ewe-settings, plus
-prebuilt copies of the AUR packages listed in `aur-packages.txt`). Per-user
+prebuilt copies of the AUR packages listed in `aur-packages.txt`). The payload
+carries the account tools — `ewe-cloud` for the user's own Nextcloud
+(RFC-005), `ewe-caldav`, `ewe-mail`, `ewe-conf` with its WebDAV sync — and
+**no Google client**: Google is optional and needs the user's own OAuth client
+file. Per-user
 deployment is `ewe-setup`; system setup (greeter, plymouth, hibernate) is
 `/usr/share/ewe/install.sh`. After that, the session refreshes itself at login
 whenever pacman has delivered a newer payload.
