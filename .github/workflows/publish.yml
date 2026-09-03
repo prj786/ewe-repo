@@ -13,6 +13,7 @@
 #   - komble-arch    — latest release asset of prj786/komble-arch
 #   - ewe-settings   — latest release asset of prj786/ewe-settings
 #   - ewe-sync       — latest release asset of prj786/ewe-sync (RFC-006, the account app)
+#   - ewe-cast       — built here from prj786/ewe-cast's packaging/PKGBUILD
 #   - aur-packages.txt entries — built from their AUR PKGBUILDs in this clean
 #                      Arch container
 #
@@ -20,8 +21,24 @@
 # accumulate next to the db (pacman only reads the db, but humans read the
 # asset list). Trigger manually after any app release, or let the weekly run
 # refresh the AUR builds.
+#
+# THAT delete-then-create is why the concurrency group below queues instead of
+# cancelling. Two overlapping runs would race to delete and recreate the same
+# release, and a run killed in the window between
+#     gh release delete x86_64 --cleanup-tag
+#     gh release create x86_64 …
+# leaves NO repository at all: every user's `pacman -Sy` fails until the next
+# publish finishes. cancel-in-progress: true would make that a routine outcome
+# of tagging two releases in quick succession, so it stays false — a queued
+# second run simply rebuilds from the newer tags a few minutes later.
 
 name: publish
+
+# Serialise: never two publishes at once, and never kill one mid-flight.
+concurrency:
+  group: publish-ewe-repo
+  cancel-in-progress: false
+
 on:
   workflow_dispatch:
   repository_dispatch:
