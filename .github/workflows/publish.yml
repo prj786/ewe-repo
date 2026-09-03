@@ -98,7 +98,8 @@ jobs:
             usr/share/ewe/VERSION \
             usr/share/ewe/docs/NEXTCLOUD.md \
             usr/bin/ewe-setup usr/bin/ewe-conf usr/bin/ewe-auth usr/bin/ewe-drive \
-            usr/bin/ewe-cloud usr/bin/ewe-caldav usr/bin/ewe-mail; do
+            usr/bin/ewe-cloud usr/bin/ewe-caldav usr/bin/ewe-mail \
+            usr/bin/ewe-theme; do
             grep -qx "$want" /tmp/ewe-pkg-files || { echo "::error::missing from the ewe package: $want"; fail=1; }
           done
           # the account app is a dependency of the desktop (RFC-006)
