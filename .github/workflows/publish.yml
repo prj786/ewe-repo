@@ -90,7 +90,9 @@ jobs:
           ver="$(gh release view --repo prj786/ewe --json tagName -q .tagName)"
           git clone --depth 1 https://github.com/prj786/ewe.git /tmp/ewe
           cd /tmp/ewe/packaging
-          sed -i "s/^pkgver=.*/pkgver=${ver#v}/" PKGBUILD
+          # hyphen is illegal in an Arch pkgver, and a tag may be v1.2.3-beta
+          pv="${ver#v}"; pv="${pv//-/}"
+          sed -i "s/^pkgver=.*/pkgver=$pv/" PKGBUILD
           chown -R builder .
           sudo -u builder makepkg -df --noconfirm
           cp ewe-*.pkg.tar.zst "$GITHUB_WORKSPACE/pkgs/"
@@ -137,7 +139,9 @@ jobs:
           fi
           git clone --depth 1 https://github.com/prj786/ewe-cast.git /tmp/ewe-cast
           cd /tmp/ewe-cast/packaging
-          sed -i "s/^pkgver=.*/pkgver=${ver#v}/" PKGBUILD
+          # hyphen is illegal in an Arch pkgver, and a tag may be v1.2.3-beta
+          pv="${ver#v}"; pv="${pv//-/}"
+          sed -i "s/^pkgver=.*/pkgver=$pv/" PKGBUILD
           chown -R builder .
           sudo -u builder makepkg -df --noconfirm
           cp ewe-cast-*.pkg.tar.zst "$GITHUB_WORKSPACE/pkgs/"
