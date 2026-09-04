@@ -68,13 +68,38 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      # `gh release view` with no tag means GitHub's "Latest", which SKIPS
+      # prereleases — so the moment ewe went to 0.12.0-beta this workflow
+      # quietly went back to building 0.11.2 and `pacman -Syu` reported
+      # everything up to date. The [ewe] repo tracks whatever was released
+      # MOST RECENTLY, beta included; `gh release list` is ordered by date and
+      # does not filter. Set PUBLISH_STABLE_ONLY=true to go back to Latest.
+      - name: Resolve the release tag of every first-party repo
+        id: tags
+        run: |
+          newest() {
+            if [ "${PUBLISH_STABLE_ONLY:-false}" = "true" ]; then
+              gh release view --repo "prj786/$1" --json tagName -q .tagName 2>/dev/null || true
+            else
+              gh release list --repo "prj786/$1" --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || true
+            fi
+          }
+          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast; do
+            t="$(newest "$r")"
+            echo "${r//-/_}=$t" >> "$GITHUB_OUTPUT"
+            echo "  $r -> ${t:-(no release)}"
+          done
+
       - name: Collect the first-party app packages (latest releases)
         run: |
           mkdir -p pkgs
-          gh release download --repo prj786/komble-arch  --pattern '*.pkg.tar.zst' --dir pkgs
-          gh release download --repo prj786/ewe-settings --pattern '*.pkg.tar.zst' --dir pkgs
+          gh release download "${{ steps.tags.outputs.komble_arch }}" \
+            --repo prj786/komble-arch  --pattern '*.pkg.tar.zst' --dir pkgs
+          gh release download "${{ steps.tags.outputs.ewe_settings }}" \
+            --repo prj786/ewe-settings --pattern '*.pkg.tar.zst' --dir pkgs
           # ewe-sync (RFC-006): a warning, not a failure, until its first release exists
-          gh release download --repo prj786/ewe-sync --pattern '*.pkg.tar.zst' --dir pkgs \
+          gh release download "${{ steps.tags.outputs.ewe_sync }}" \
+            --repo prj786/ewe-sync --pattern '*.pkg.tar.zst' --dir pkgs \
             || echo "::warning::ewe-sync has no release yet — the repo will not carry it this round"
           ls -l pkgs
 
@@ -87,12 +112,17 @@ jobs:
         # `nextcloud` branch (DE 0.10.0) — publishing it against an older ewe
         # tag would fail the contents assertion below, by design.
         run: |
-          ver="$(gh release view --repo prj786/ewe --json tagName -q .tagName)"
+          ver="${{ steps.tags.outputs.ewe }}"
           git clone --depth 1 https://github.com/prj786/ewe.git /tmp/ewe
           cd /tmp/ewe/packaging
-          # hyphen is illegal in an Arch pkgver, and a tag may be v1.2.3-beta
+          # _tag addresses the GitHub archive (and names the directory it
+          # extracts to); pkgver is what pacman sees and may not contain a
+          # hyphen. Both are rewritten — pinning only pkgver made the source
+          # URL point at a tag that does not exist.
           pv="${ver#v}"; pv="${pv//-/}"
+          sed -i "s/^_tag=.*/_tag=$ver/" PKGBUILD
           sed -i "s/^pkgver=.*/pkgver=$pv/" PKGBUILD
+          grep -E '^(_tag|pkgver)=' PKGBUILD
           chown -R builder .
           sudo -u builder makepkg -df --noconfirm
           cp ewe-*.pkg.tar.zst "$GITHUB_WORKSPACE/pkgs/"
@@ -132,16 +162,21 @@ jobs:
 
       - name: Build the ewe-cast package (pkgver = latest ewe-cast release tag)
         run: |
-          ver="$(gh release view --repo prj786/ewe-cast --json tagName -q .tagName 2>/dev/null || true)"
+          ver="${{ steps.tags.outputs.ewe_cast }}"
           if [ -z "$ver" ]; then
             echo "::warning::ewe-cast has no release yet — the repo will not carry it this round"
             exit 0
           fi
           git clone --depth 1 https://github.com/prj786/ewe-cast.git /tmp/ewe-cast
           cd /tmp/ewe-cast/packaging
-          # hyphen is illegal in an Arch pkgver, and a tag may be v1.2.3-beta
+          # _tag addresses the GitHub archive (and names the directory it
+          # extracts to); pkgver is what pacman sees and may not contain a
+          # hyphen. Both are rewritten — pinning only pkgver made the source
+          # URL point at a tag that does not exist.
           pv="${ver#v}"; pv="${pv//-/}"
+          sed -i "s/^_tag=.*/_tag=$ver/" PKGBUILD
           sed -i "s/^pkgver=.*/pkgver=$pv/" PKGBUILD
+          grep -E '^(_tag|pkgver)=' PKGBUILD
           chown -R builder .
           sudo -u builder makepkg -df --noconfirm
           cp ewe-cast-*.pkg.tar.zst "$GITHUB_WORKSPACE/pkgs/"
