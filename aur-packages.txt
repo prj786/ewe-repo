@@ -8,3 +8,7 @@ gnome-network-displays
 paru-bin
 helium-browser-bin
 mpv-uosc-git
+# IPsec for L2TP/IPsec VPNs. Replaces strongswan (strongSwan 6.1 dropped IKEv1,
+# which L2TP/IPsec needs). Conflicts with strongswan; the ewe package
+# `replaces` it, so `pacman -Syu --noconfirm` (Komble) swaps them unattended.
+libreswan
