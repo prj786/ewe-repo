@@ -15,6 +15,8 @@
 #   - ewe-sync       — latest release asset of prj786/ewe-sync (RFC-006, the account app)
 #   - ewe-browser    — latest release asset of prj786/ewe-browser (the browser;
 #                      Electron with its own castlabs runtime, ~120 MB)
+#   - ewe-safe       — latest release asset of prj786/ewe-safe (Safe, the password
+#                      manager, RFC-008; opt-in — nothing depends on it)
 #   - ewe-cast       — built here from prj786/ewe-cast's packaging/PKGBUILD
 #   - aur-packages.txt entries — built from their AUR PKGBUILDs in this clean
 #                      Arch container
@@ -86,7 +88,7 @@ jobs:
               gh release list --repo "prj786/$1" --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || true
             fi
           }
-          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast ewe-browser; do
+          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast ewe-browser ewe-safe; do
             t="$(newest "$r")"
             echo "${r//-/_}=$t" >> "$GITHUB_OUTPUT"
             echo "  $r -> ${t:-(no release)}"
@@ -108,6 +110,15 @@ jobs:
           gh release download "${{ steps.tags.outputs.ewe_browser }}" \
             --repo prj786/ewe-browser --pattern '*.pkg.tar.zst' --dir pkgs \
             || echo "::warning::ewe-browser has no release yet — the gate below will refuse this publish"
+          # ewe-safe (RFC-008): opt-in, nothing depends on it — a warning, not a
+          # failure, until its first release exists
+          if [ -n "${{ steps.tags.outputs.ewe_safe }}" ]; then
+            gh release download "${{ steps.tags.outputs.ewe_safe }}" \
+              --repo prj786/ewe-safe --pattern '*.pkg.tar.zst' --dir pkgs \
+              || echo "::warning::ewe-safe's release has no package — the repo will not carry it this round"
+          else
+            echo "::warning::ewe-safe has no release yet — the repo will not carry it this round"
+          fi
           ls -l pkgs
 
       - name: Build the ewe package (pkgver = latest ewe release tag)
