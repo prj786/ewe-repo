@@ -13,6 +13,8 @@
 #   - komble-arch    — latest release asset of prj786/komble-arch
 #   - ewe-settings   — latest release asset of prj786/ewe-settings
 #   - ewe-sync       — latest release asset of prj786/ewe-sync (RFC-006, the account app)
+#   - ewe-browser    — latest release asset of prj786/ewe-browser (the browser;
+#                      Electron with its own castlabs runtime, ~120 MB)
 #   - ewe-cast       — built here from prj786/ewe-cast's packaging/PKGBUILD
 #   - aur-packages.txt entries — built from their AUR PKGBUILDs in this clean
 #                      Arch container
@@ -84,7 +86,7 @@ jobs:
               gh release list --repo "prj786/$1" --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || true
             fi
           }
-          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast; do
+          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast ewe-browser; do
             t="$(newest "$r")"
             echo "${r//-/_}=$t" >> "$GITHUB_OUTPUT"
             echo "  $r -> ${t:-(no release)}"
@@ -101,6 +103,11 @@ jobs:
           gh release download "${{ steps.tags.outputs.ewe_sync }}" \
             --repo prj786/ewe-sync --pattern '*.pkg.tar.zst' --dir pkgs \
             || echo "::warning::ewe-sync has no release yet — the repo will not carry it this round"
+          # ewe-browser: the ewe package depends on it, so without a release the
+          # fresh-install gate below refuses this publish (the old repo stays up)
+          gh release download "${{ steps.tags.outputs.ewe_browser }}" \
+            --repo prj786/ewe-browser --pattern '*.pkg.tar.zst' --dir pkgs \
+            || echo "::warning::ewe-browser has no release yet — the gate below will refuse this publish"
           ls -l pkgs
 
       - name: Build the ewe package (pkgver = latest ewe release tag)
@@ -154,6 +161,9 @@ jobs:
           # the account app is a dependency of the desktop (RFC-006)
           tar --zstd -xOf "$pkg" .PKGINFO | grep -q '^depend = ewe-sync' \
             || { echo "::error::the ewe package does not depend on ewe-sync"; fail=1; }
+          # …and so is the browser, which replaced Helium
+          tar --zstd -xOf "$pkg" .PKGINFO | grep -q '^depend = ewe-browser$' \
+            || { echo "::error::the ewe package does not depend on ewe-browser"; fail=1; }
           if grep -q 'oauth-client.json' /tmp/ewe-pkg-files; then
             echo "::error::the ewe package carries an oauth-client.json — RFC-005 ships no Google client"; fail=1
           fi
@@ -187,7 +197,8 @@ jobs:
             echo "::group::$p"
             git clone --depth 1 "https://aur.archlinux.org/$p.git" "/tmp/aur/$p"
             chown -R builder "/tmp/aur/$p"
-            # source-signature packages (helium-browser-bin): import the
+            # source-signature packages (helium-browser-bin, while it was
+            # listed): import the
             # PKGBUILD's validpgpkeys into the BUILDER's keyring, or makepkg
             # dies with "unknown public key" (2026-09-02)
             keys="$(cd "/tmp/aur/$p" && sudo -u builder bash -c 'source ./PKGBUILD 2>/dev/null; echo "${validpgpkeys[@]:-}"')"
