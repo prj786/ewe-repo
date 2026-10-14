@@ -38,7 +38,7 @@ whenever pacman has delivered a newer payload.
 The `publish` workflow (manual `workflow_dispatch`, a `repository_dispatch` of
 type `publish`, or the Monday cron) rebuilds everything from the latest
 releases and AUR PKGBUILDs and recreates the x86_64 release. Run it after any
-ewe / komble-arch / ewe-settings / ewe-sync / ewe-cast / ewe-browser release.
+ewe / komble-arch / ewe-settings / ewe-sync / ewe-cast / ewe-browser / ewe-safe release.
 
 Packages are currently unsigned (`SigLevel = Optional TrustAll`); repo signing
 is planned before the standalone-distro release.
