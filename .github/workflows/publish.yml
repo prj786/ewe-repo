@@ -17,6 +17,9 @@
 #                      Electron with its own castlabs runtime, ~120 MB)
 #   - ewe-safe       — latest release asset of prj786/ewe-safe (Safe, the password
 #                      manager, RFC-008; opt-in — nothing depends on it)
+#   - ewe-companion  — latest release asset of prj786/ewe-companion (Shaun, the
+#                      desktop companion's daemon + CLI, RFC-007; opt-in — the
+#                      ewe.companion plugin in ewe's payload requires it)
 #   - ewe-cast       — built here from prj786/ewe-cast's packaging/PKGBUILD
 #   - aur-packages.txt entries — built from their AUR PKGBUILDs in this clean
 #                      Arch container
@@ -88,7 +91,7 @@ jobs:
               gh release list --repo "prj786/$1" --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || true
             fi
           }
-          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast ewe-browser ewe-safe; do
+          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast ewe-browser ewe-safe ewe-companion; do
             t="$(newest "$r")"
             echo "${r//-/_}=$t" >> "$GITHUB_OUTPUT"
             echo "  $r -> ${t:-(no release)}"
@@ -118,6 +121,15 @@ jobs:
               || echo "::warning::ewe-safe's release has no package — the repo will not carry it this round"
           else
             echo "::warning::ewe-safe has no release yet — the repo will not carry it this round"
+          fi
+          # ewe-companion (RFC-007, Shaun): opt-in like ewe-safe — a warning, not a
+          # failure, when there is no release or no package on it
+          if [ -n "${{ steps.tags.outputs.ewe_companion }}" ]; then
+            gh release download "${{ steps.tags.outputs.ewe_companion }}" \
+              --repo prj786/ewe-companion --pattern '*.pkg.tar.zst' --dir pkgs \
+              || echo "::warning::ewe-companion's release has no package — the repo will not carry it this round"
+          else
+            echo "::warning::ewe-companion has no release yet — the repo will not carry it this round"
           fi
           ls -l pkgs
 
