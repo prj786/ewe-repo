@@ -216,6 +216,17 @@ jobs:
 
       - name: Build the AUR packages
         run: |
+          # A build whose sources cannot be fetched (GitHub release downloads
+          # answered 504 for an hour on 2026-11-08 and sank two publishes in a
+          # row on oh-my-posh's assets) reuses the package already in the repo
+          # — the same or an older version — instead of failing the release of
+          # everything else. No previous package: fail as before.
+          reuse() {
+            echo "::warning::$1: build failed — reusing the package already in the repo"
+            gh release download x86_64 -R "$GITHUB_REPOSITORY" -p "$1-[0-9]*.pkg.tar.zst" \
+                -D "$GITHUB_WORKSPACE/pkgs/" --clobber \
+              || { echo "::error::$1: no build and no previous package to reuse"; exit 1; }
+          }
           while read -r p; do
             echo "::group::$p"
             git clone --depth 1 "https://aur.archlinux.org/$p.git" "/tmp/aur/$p"
@@ -228,21 +239,38 @@ jobs:
             for k in $keys; do
               sudo -u builder gpg --keyserver keyserver.ubuntu.com --recv-keys "$k"                 || sudo -u builder gpg --keyserver hkps://keys.openpgp.org --recv-keys "$k" || true
             done
-            ( cd "/tmp/aur/$p" && sudo -u builder makepkg -s --noconfirm --noprogressbar )
-            find "/tmp/aur/$p" -name '*.pkg.tar.zst' ! -name '*-debug-*' \
-                 -exec cp {} "$GITHUB_WORKSPACE/pkgs/" \;
+            if ( cd "/tmp/aur/$p" && sudo -u builder makepkg -s --noconfirm --noprogressbar ); then
+              find "/tmp/aur/$p" -name '*.pkg.tar.zst' ! -name '*-debug-*' \
+                   -exec cp {} "$GITHUB_WORKSPACE/pkgs/" \;
+            else
+              reuse "$p"
+            fi
             echo "::endgroup::"
           done < <(sed 's/#.*//' aur-packages.txt | awk 'NF{print $1}')
 
       - name: Build the local PKGBUILDs (things not on AUR — see pkgbuilds/)
         run: |
+          # A build whose sources cannot be fetched (GitHub release downloads
+          # answered 504 for an hour on 2026-11-08 and sank two publishes in a
+          # row on oh-my-posh's assets) reuses the package already in the repo
+          # — the same or an older version — instead of failing the release of
+          # everything else. No previous package: fail as before.
+          reuse() {
+            echo "::warning::$1: build failed — reusing the package already in the repo"
+            gh release download x86_64 -R "$GITHUB_REPOSITORY" -p "$1-[0-9]*.pkg.tar.zst" \
+                -D "$GITHUB_WORKSPACE/pkgs/" --clobber \
+              || { echo "::error::$1: no build and no previous package to reuse"; exit 1; }
+          }
           for d in pkgbuilds/*/; do
             p=$(basename "$d")
             echo "::group::$p"
             chown -R builder "$d"
-            ( cd "$d" && sudo -u builder makepkg -sf --noconfirm --noprogressbar )
-            find "$d" -name '*.pkg.tar.zst' ! -name '*-debug-*' \
-                 -exec cp {} "$GITHUB_WORKSPACE/pkgs/" \;
+            if ( cd "$d" && sudo -u builder makepkg -sf --noconfirm --noprogressbar ); then
+              find "$d" -name '*.pkg.tar.zst' ! -name '*-debug-*' \
+                   -exec cp {} "$GITHUB_WORKSPACE/pkgs/" \;
+            else
+              reuse "$p"
+            fi
             echo "::endgroup::"
           done
 
