@@ -91,7 +91,7 @@ jobs:
               gh release list --repo "prj786/$1" --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || true
             fi
           }
-          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast ewe-browser ewe-safe ewe-companion; do
+          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast ewe-browser ewe-apps ewe-safe ewe-companion; do
             t="$(newest "$r")"
             echo "${r//-/_}=$t" >> "$GITHUB_OUTPUT"
             echo "  $r -> ${t:-(no release)}"
@@ -113,6 +113,11 @@ jobs:
           gh release download "${{ steps.tags.outputs.ewe_browser }}" \
             --repo prj786/ewe-browser --pattern '*.pkg.tar.zst' --dir pkgs \
             || echo "::warning::ewe-browser has no release yet — the gate below will refuse this publish"
+          # ewe-apps (ewe Files, ewe Player, ewe Viewer — ewe 0.44): the ewe package
+          # depends on it, so like ewe-browser a missing release fails the gate below
+          gh release download "${{ steps.tags.outputs.ewe_apps }}" \
+            --repo prj786/ewe-apps --pattern '*.pkg.tar.zst' --dir pkgs \
+            || echo "::warning::ewe-apps has no release yet — the gate below will refuse this publish"
           # ewe-safe (RFC-008): opt-in, nothing depends on it — a warning, not a
           # failure, until its first release exists
           if [ -n "${{ steps.tags.outputs.ewe_safe }}" ]; then
@@ -262,7 +267,7 @@ jobs:
             | sed 's|.*/||; s|-[0-9][^-]*-[0-9][^-]*-[^-]*\.pkg\.tar\.zst||' > /tmp/tree.txt
           [ -s /tmp/tree.txt ] || { echo "::error::fresh install does not resolve"; exit 1; }
           echo "fresh install: $(wc -l < /tmp/tree.txt) packages"
-          if grep -xE "jack2|tesseract-data-afr|papirus-icon-theme|iwd" /tmp/tree.txt; then
+          if grep -xE "jack2|tesseract-data-afr|papirus-icon-theme|iwd|nvidia-utils" /tmp/tree.txt; then
             echo "::error::blacklisted package resolved into a fresh install"; exit 1
           fi
           python - <<'PY'

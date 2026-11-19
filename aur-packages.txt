@@ -4,9 +4,8 @@
 # workflow builds each from its AUR PKGBUILD in a clean Arch container.
 oh-my-posh-bin
 mpvpaper
-gnome-network-displays
+gnome-network-displays   # not in ewe's aur.list since 0.44: the Cast plugin requires it, Komble installs it
 paru-bin
-mpv-uosc-git
 # IPsec for L2TP/IPsec VPNs. Replaces strongswan (strongSwan 6.1 dropped IKEv1,
 # which L2TP/IPsec needs). Conflicts with strongswan; the ewe package
 # `replaces` it, so `pacman -Syu --noconfirm` (Komble) swaps them unattended.
