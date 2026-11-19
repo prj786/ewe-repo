@@ -7,7 +7,7 @@
 
 pkgname=reversal-icon-theme
 pkgver=2026.08.27
-pkgrel=1
+pkgrel=2
 pkgdesc="Reversal icon theme, all colour variants (ewe desktop)"
 arch=('any')
 url="https://github.com/yeyushengfan258/Reversal-icon-theme"
@@ -24,4 +24,10 @@ package() {
     # icon caches are per-machine (alpm's gtk-update-icon-cache hook rebuilds
     # them on install) — don't ship whatever install.sh generated
     rm -f "$pkgdir"/usr/share/icons/*/icon-theme.cache
+    # The 24 colour variants are full copies that differ only in the folder
+    # and places icons (285 of ~10,660 files between two variants): 416 MiB
+    # installed, ~1.9 GB on a btrfs disk (every small file takes a block).
+    # Hard-link identical files (util-linux, in base): ~14 MiB installed and
+    # every icon is still a regular file to the icon loaders (2026-11-19).
+    hardlink -q -c "$pkgdir/usr/share/icons"
 }
