@@ -20,6 +20,9 @@
 #   - ewe-companion  — latest release asset of prj786/ewe-companion (Shaun, the
 #                      desktop companion's daemon + CLI, RFC-007; opt-in — the
 #                      ewe.companion plugin in ewe's payload requires it)
+#   - eep            — latest release asset of prj786/eep (apps from the Nix
+#                      binary cache, one card per app; opt-in — nothing
+#                      depends on it, it pulls in extra/nix)
 #   - ewe-cast       — built here from prj786/ewe-cast's packaging/PKGBUILD
 #   - aur-packages.txt entries — built from their AUR PKGBUILDs in this clean
 #                      Arch container
@@ -91,7 +94,7 @@ jobs:
               gh release list --repo "prj786/$1" --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || true
             fi
           }
-          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast ewe-browser ewe-apps ewe-safe ewe-companion; do
+          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast ewe-browser ewe-apps ewe-safe ewe-companion eep; do
             t="$(newest "$r")"
             echo "${r//-/_}=$t" >> "$GITHUB_OUTPUT"
             echo "  $r -> ${t:-(no release)}"
@@ -135,6 +138,16 @@ jobs:
               || echo "::warning::ewe-companion's release has no package — the repo will not carry it this round"
           else
             echo "::warning::ewe-companion has no release yet — the repo will not carry it this round"
+          fi
+          # eep (apps from the Nix binary cache): opt-in like ewe-safe — a warning,
+          # not a failure, when there is no release or no package on it. The
+          # release also carries the plain binary; only the package is taken.
+          if [ -n "${{ steps.tags.outputs.eep }}" ]; then
+            gh release download "${{ steps.tags.outputs.eep }}" \
+              --repo prj786/eep --pattern '*.pkg.tar.zst' --dir pkgs \
+              || echo "::warning::eep's release has no package — the repo will not carry it this round"
+          else
+            echo "::warning::eep has no release yet — the repo will not carry it this round"
           fi
           ls -l pkgs
 
