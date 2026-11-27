@@ -20,7 +20,10 @@
 #   - ewe-companion  — latest release asset of prj786/ewe-companion (Shaun, the
 #                      desktop companion's daemon + CLI, RFC-007; opt-in — the
 #                      ewe.companion plugin in ewe's payload requires it)
-#   - eep            — latest release asset of prj786/eep (every app is a card
+#   - ewe-mobile     — latest release asset of prj786/ewe-mobile (ewe Mobile, the
+#                      phone in one window over kdeconnectd; opt-in — the
+#                      ewe.phone plugin opens it where it is installed)
+#   - eep           — latest release asset of prj786/eep (every app is a card
 #                      in ~/Applications; apps from the Nix binary cache). The
 #                      ewe package depends on it since 0.49 (it pulls extra/nix)
 #   - ewe-cast       — built here from prj786/ewe-cast's packaging/PKGBUILD
@@ -94,7 +97,7 @@ jobs:
               gh release list --repo "prj786/$1" --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || true
             fi
           }
-          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast ewe-browser ewe-apps ewe-safe ewe-companion eep; do
+          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast ewe-browser ewe-apps ewe-safe ewe-companion ewe-mobile eep; do
             t="$(newest "$r")"
             echo "${r//-/_}=$t" >> "$GITHUB_OUTPUT"
             echo "  $r -> ${t:-(no release)}"
@@ -138,6 +141,17 @@ jobs:
               || echo "::warning::ewe-companion's release has no package — the repo will not carry it this round"
           else
             echo "::warning::ewe-companion has no release yet — the repo will not carry it this round"
+          fi
+          # ewe-mobile (ewe Mobile): opt-in like ewe-safe — a warning, not a
+          # failure. Its repo was private until 2026-11-27 and this job's token
+          # reads only public repos: if it ever goes private again, the
+          # release becomes invisible and lands here as "no release yet".
+          if [ -n "${{ steps.tags.outputs.ewe_mobile }}" ]; then
+            gh release download "${{ steps.tags.outputs.ewe_mobile }}" \
+              --repo prj786/ewe-mobile --pattern '*.pkg.tar.zst' --dir pkgs \
+              || echo "::warning::ewe-mobile's release has no package — the repo will not carry it this round"
+          else
+            echo "::warning::ewe-mobile has no release yet (or its repo is private) — the repo will not carry it this round"
           fi
           # eep (every app is a card; apps from the Nix binary cache): the ewe
           # package depends on it since 0.49, so like ewe-apps a missing
