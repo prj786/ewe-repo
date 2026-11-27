@@ -39,7 +39,18 @@ The `publish` workflow (manual `workflow_dispatch`, a `repository_dispatch` of
 type `publish`, or the Monday cron) rebuilds everything from the latest
 releases and AUR PKGBUILDs and recreates the x86_64 release. Run it after any
 ewe / komble-arch / ewe-settings / ewe-sync / ewe-cast / ewe-browser / ewe-safe /
-ewe-companion / eep release.
+ewe-companion / ewe-mobile / eep release.
 
 Packages are currently unsigned (`SigLevel = Optional TrustAll`); repo signing
 is planned before the standalone-distro release.
+
+## Opt-in apps
+
+Nothing depends on these; install them by name (or from Komble), and
+`pacman -Syu` keeps them current from then on:
+
+```sh
+sudo pacman -S ewe-safe      # Safe, the password manager
+sudo pacman -S ewe-companion # Shaun, the desktop companion
+sudo pacman -S ewe-mobile    # ewe Mobile, your phone in one window (pulls kdeconnect)
+```
