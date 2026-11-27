@@ -23,6 +23,9 @@
 #   - ewe-mobile     — latest release asset of prj786/ewe-mobile (ewe Mobile, the
 #                      phone in one window over kdeconnectd; opt-in — the
 #                      ewe.phone plugin opens it where it is installed)
+#   - ewe-mail       — latest release asset of prj786/ewe-mail (ewe Mail: Gmail and
+#                      any other account; the mailto: handler and the Mail
+#                      plugin's source). The ewe package depends on it since 0.51
 #   - eep           — latest release asset of prj786/eep (every app is a card
 #                      in ~/Applications; apps from the Nix binary cache). The
 #                      ewe package depends on it since 0.49 (it pulls extra/nix)
@@ -97,7 +100,7 @@ jobs:
               gh release list --repo "prj786/$1" --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || true
             fi
           }
-          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast ewe-browser ewe-apps ewe-safe ewe-companion ewe-mobile eep; do
+          for r in ewe komble-arch ewe-settings ewe-sync ewe-cast ewe-browser ewe-apps ewe-mail ewe-safe ewe-companion ewe-mobile eep; do
             t="$(newest "$r")"
             echo "${r//-/_}=$t" >> "$GITHUB_OUTPUT"
             echo "  $r -> ${t:-(no release)}"
@@ -124,6 +127,15 @@ jobs:
           gh release download "${{ steps.tags.outputs.ewe_apps }}" \
             --repo prj786/ewe-apps --pattern '*.pkg.tar.zst' --dir pkgs \
             || echo "::warning::ewe-apps has no release yet — the gate below will refuse this publish"
+          # ewe-mail (ewe Mail — ewe 0.51): the ewe package depends on it, so like
+          # ewe-apps a missing release fails the fresh-install gate below
+          if [ -n "${{ steps.tags.outputs.ewe_mail }}" ]; then
+            gh release download "${{ steps.tags.outputs.ewe_mail }}" \
+              --repo prj786/ewe-mail --pattern '*.pkg.tar.zst' --dir pkgs \
+              || echo "::warning::ewe-mail's release has no package — the gate below will refuse this publish if ewe depends on it"
+          else
+            echo "::warning::ewe-mail has no release yet — the gate below will refuse this publish if ewe depends on it"
+          fi
           # ewe-safe (RFC-008): opt-in, nothing depends on it — a warning, not a
           # failure, until its first release exists
           if [ -n "${{ steps.tags.outputs.ewe_safe }}" ]; then
